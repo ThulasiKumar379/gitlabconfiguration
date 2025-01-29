@@ -1,0 +1,73 @@
+
+
+                                             GitLab Installing on Linux
+
+#!/bin/bash
+
+# Exit immediately if a command exits with a non-zero status
+set -e
+
+echo "Installing dependencies..."
+sudo yum install -y curl policycoreutils-python openssh-server openssh-clients perl
+
+echo "Enabling and starting SSH service..."
+sudo systemctl enable sshd
+sudo systemctl start sshd
+
+echo "Installing and configuring firewalld..."
+sudo yum install -y firewalld
+sudo systemctl enable firewalld
+sudo systemctl start firewalld
+
+echo "Adding HTTP and HTTPS services to firewall rules..."
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo systemctl reload firewalld
+
+echo "Installing and setting up Postfix for mail notifications..."
+sudo yum install -y postfix
+sudo systemctl enable postfix
+sudo systemctl start postfix
+
+echo "Adding GitLab package repository..."
+curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.rpm.sh | sudo bash
+
+# Prompt for the IP address
+read -p "Enter the external IP address for GitLab (e.g., http://192.168.1.1): " EXTERNAL_URL
+
+if [[ -z "$EXTERNAL_URL" ]]; then
+    echo "Error: No IP address provided. Exiting."
+    exit 1
+fi
+
+echo "Installing GitLab EE with EXTERNAL_URL=$EXTERNAL_URL..."
+sudo EXTERNAL_URL="$EXTERNAL_URL" yum install -y gitlab-ee
+
+echo "Fetching initial root password..."
+sudo cat /etc/gitlab/initial_root_password
+
+echo "GitLab installation and setup complete."
+
+
+                                                                GitLab Runner Installing on linux
+	
+curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh" | sudo bash
+
+sudo yum install gitlab-runner
+
+or
+
+sudo dnf install gitlab-runner
+
+sudo gitlab-runner register
+ 
+ 
+                                                               GitLab CI/CD
+
+ 
+             do firewall-cmd --add-port=8180/tcp --permanent
+sudo firewall-cmd --reload
+
+.gitlab-ci.yml
+
+gitlab-runner ALL=(ALL) NOPASSWD: ALL
