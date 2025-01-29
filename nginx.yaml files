@@ -1,0 +1,84 @@
+stages:
+  - test_connection
+  - install_nginx
+
+# First stage: Test SSH connection to the remote server
+test_connection:
+  stage: test_connection
+  before_script:
+    - echo "Setting up SSH access..."
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H 3.15.143.103 >> ~/.ssh/known_hosts
+  script:
+    - echo "Testing SSH connection to the remote server..."
+    - ssh -o StrictHostKeyChecking=no ec2-user@3.15.143.103 'echo "Connection successful!"'
+  tags:
+    - runner1
+
+# Second stage: Install NGINX
+install_nginx:
+  stage: install_nginx
+  before_script:
+    - echo "Setting up SSH access for NGINX installation..."
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H 3.15.143.103 >> ~/.ssh/known_hosts
+  script:
+    - echo "Connecting to the remote server and installing NGINX..."
+    - |
+      ssh -o StrictHostKeyChecking=no ec2-user@3.15.143.103 << 'EOF'
+        echo "Updating system packages..."
+        sudo yum update -y
+        echo "Enabling Amazon Linux Extras and installing NGINX..."
+        sudo amazon-linux-extras enable nginx1
+        sudo yum install -y nginx
+        echo "Modifying NGINX configuration to listen on port 8180..."
+        sudo sed -i 's/listen\s*80;/listen 8180;/' /etc/nginx/nginx.conf
+        sudo sed -i 's/listen\s*\[::\]:80;/listen [::]:8180;/' /etc/nginx/nginx.conf
+        echo "Allowing port 8180 in the firewall..."
+        sudo firewall-cmd --permanent --add-port=8180/tcp
+        sudo firewall-cmd --reload
+        echo "Enabling and starting NGINX service..."
+        sudo systemctl enable nginx
+        sudo systemctl restart nginx
+        echo "Testing NGINX configuration..."
+        sudo nginx -t
+        echo "Verifying NGINX is running on port 8180..."
+        sudo netstat -tuln | grep 8180
+      EOF
+  tags:
+    - runner1
+  when: on_success   # Ensures the install_nginx job runs only after the test_connection job passes
+
+  =========================nginx installed=======
+  stages:
+  - setup
+
+install_nginx:
+  stage: setup
+  script:
+    - echo "Updating system packages..."
+    - sudo yum update -y
+    - echo "Enabling Amazon Linux Extras and installing NGINX..."
+    - sudo amazon-linux-extras enable nginx1
+    - sudo yum install -y nginx
+    - echo "Modifying NGINX configuration to listen on port 8180..."
+    - sudo sed -i 's/listen\s*80;/listen 8180;/' /etc/nginx/nginx.conf
+    - sudo sed -i 's/listen\s*\[::\]:80;/listen [::]:8180;/' /etc/nginx/nginx.conf
+    - echo "Allowing port 8180 in the firewall..."
+    - sudo firewall-cmd --permanent --add-port=8180/tcp
+    - sudo firewall-cmd --reload
+    - echo "Enabling and starting NGINX service..."
+    - sudo systemctl enable nginx
+    - sudo systemctl restart nginx
+    - echo "Testing NGINX configuration..."
+    - sudo nginx -t
+    - echo "Verifying NGINX is running on port 8180..."
+    - sudo netstat -tuln | grep 8180
+  tags:
+    - runner1
+
+  
